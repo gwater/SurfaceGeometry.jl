@@ -18,17 +18,23 @@ function Base.show(io::IO, r::StabilisationResults)
 end
 
 # High level interface. If you trust enough ;)
-function stabilise(points,faces,v;method=:Zinchenko2013,vp=zeros(size(points)...))
-
+function stabilise(
+    points,
+    faces,
+    v;
+    method = :Zinchenko2013,
+    p = zeros(size(points)...),
+    constraint! = (gradf, points, faces, n) -> nothing
+)
     n = Array{Float64}(undef,size(points)...)
     NormalVectors!(n,points,faces,i -> FaceVRing(i,faces))
-    
+
     ### Projecting previous velocity
     for xkey in 1:size(points,2)
         P = eye(3) - n[:,xkey]*n[:,xkey]'
-        v[:,xkey] = n[:,xkey]*dot(n[:,xkey],v[:,xkey]) + P*vp[:,xkey]
+        v[:,xkey] = n[:,xkey]*dot(n[:,xkey],v[:,xkey]) + P*v[:,xkey]
     end
-    
+
     if method==:Zinchenko2013
         zc = Zinchenko2013(points,faces,n)
     elseif method==:Zinchenko1997
@@ -36,20 +42,19 @@ function stabilise(points,faces,v;method=:Zinchenko2013,vp=zeros(size(points)...
     elseif method==:Erdmanis2016
         zc = Erdmanis2016()
     else
-        zc = method   ### For construction outside the usual 
+        zc = method   ### For construction outside the usual
     end
 
     vres = copy(v)
     Finit = F(points,faces,v,zc)
-    stabilise!(points,faces,n,vres,zc)
+    stabilise!(points,faces,n,vres,zc,constraint!)
     Fres = F(points,faces,vres,zc)
     res = StabilisationResults(zc,v,Finit,vres,Fres)
     return res
 end
 
-
 # function stabilise(points,faces,v;method=:Zinchenko2013)
-    
+
 #     n = Array(Float64,size(points)...)
 #     for i in 1:size(points,2)
 #         iter = FaceVRing(i,faces)

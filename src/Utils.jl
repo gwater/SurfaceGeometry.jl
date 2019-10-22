@@ -40,7 +40,7 @@ end
 
 using ForwardDiff               # Can be made optional
 
-function pushback(sdist::Function,x::Array{Float64,1})
+function pushback(sdist::Function, x::Vector{T}) where T <: AbstractFloat
     for i in 1:100
         grad = ForwardDiff.gradient(sdist,x)
         x = x - sdist(x)*grad/norm(grad)^2
@@ -125,10 +125,10 @@ function subdivision(points,faces; n=1,method=:linear)
     return rpoints,rfaces
 end
 
-function LinearSubdivision(points,faces)
+function LinearSubdivision(points::AbstractArray{T, 2}, faces) where T <: AbstractFloat
 
     rfaces = subdivision(faces)
-    rpoints = Array{Float64}(undef,3,maximum(rfaces))
+    rpoints = Array{T}(undef,3,maximum(rfaces))
 
     for ti in 1:size(faces,2)
 
@@ -147,13 +147,13 @@ function LinearSubdivision(points,faces)
 end
 
 
-function ParaboloidSubdivision(points,faces)
+function ParaboloidSubdivision(points::AbstractArray{T, 2}, faces) where T <: AbstractFloat
 
-    normals = Array{Float64}(undef,size(points)...)
+    normals = Array{T}(undef,size(points)...)
     NormalVectors!(normals,points,faces,i->FaceVRing(i,faces))
 
     rfaces = subdivision(faces)
-    rpoints = Array{Float64}(undef,3,maximum(rfaces))
+    rpoints = Array{T}(undef,3,maximum(rfaces))
 
     vproperties = []
     for xkey in 1:size(points,2)
@@ -161,10 +161,10 @@ function ParaboloidSubdivision(points,faces)
         x = points[:,xkey]
         nx = normals[:,xkey]
 
-        vects = Float64[]
+        vects = T[]
         for i in VertexVRing(xkey,faces)
             vi = points[:,i] - x
-            vects = [vects..., vi...]
+            vects = [vects..., vi...] # WTF FIXME
         end
         vects = reshape(vects,3,div(length(vects),3))
 
