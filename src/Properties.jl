@@ -20,7 +20,7 @@ function vnormal(v::Int,points::Array{Float64,2},faces::Array{Int,2},Iterator)
         alpha = asin(norm(cross(a1,a2))/norm(a1)/norm(a2))
 
         N_MWA += alpha*cross(a1,a2)
-        
+
     end
 
     N_MWA = N_MWA/norm(N_MWA)
@@ -42,43 +42,56 @@ function ZinchenkoDifertential!(vects,vnormal,R)
 
     d = [0,0,1] + vnormal
     d /= norm(d)
-        
+
     Ln = d[1]*Lx + d[2]*Ly + d[3]*Lz
-    #R[:,:] = expm(pi*Ln)
-    R[:,:] = exp(pi*Ln)
+    try
+        R[:,:] = exp(pi*Ln)
 
-    # println("Rotation matrix is")
-    # dump(R)
+        # println("Rotation matrix is")
+        # dump(R)
 
-    for vj in 1:size(vects)[end]
-        vects[:,vj] = R*vects[:,vj]
+        for vj in 1:size(vects)[end]
+            vects[:,vj] = R*vects[:,vj]
+        end
+
+        ### Construction of the system
+        A = Array{Float64}(undef,3,3)
+        B = Array{Float64}(undef,3)
+
+        vects_norm2 = Array{Float64}(undef,size(vects)[end])
+        for vj in 1:size(vects)[end]
+            vects_norm2[vj] = norm(vects[:,vj])^2
+        end
+
+        A[1,1] = sum(vects[1,:].^4 ./vects_norm2)
+        A[1,2] = sum(vects[1,:].^3 .*vects[2,:]./vects_norm2)
+        A[1,3] = sum(vects[2,:].^2 .*vects[1,:].^2 ./vects_norm2)
+        A[2,1] = A[1,2]
+        A[2,2] = A[1,3]
+        A[2,3] = sum(vects[2,:].^3 .*vects[1,:]./vects_norm2)
+        A[3,1] = A[1,3]
+        A[3,2] = A[2,3]
+        A[3,3] = sum(vects[2,:].^4 ./vects_norm2)
+
+        B[1] = sum(vects[3,:].*vects[1,:].^2 ./vects_norm2)
+        B[2] = sum(vects[1,:].*vects[2,:].*vects[3,:]./vects_norm2)
+        B[3] = sum(vects[2,:].^2 .*vects[3,:]./vects_norm2)
+        try
+            C,D,E = A\B
+            return C,D,E
+        catch e
+            @show A
+            @show B
+            @show R
+            rethrow(e)
+        end
+    catch e
+        @show vects
+        @show vnormal
+        @show d
+        @show Ln
+        rethrow(e)
     end
-
-    ### Construction of the system
-    A = Array{Float64}(undef,3,3)
-    B = Array{Float64}(undef,3)
-
-    vects_norm2 = Array{Float64}(undef,size(vects)[end])
-    for vj in 1:size(vects)[end]
-       vects_norm2[vj] = norm(vects[:,vj])^2
-    end
-
-    A[1,1] = sum(vects[1,:].^4 ./vects_norm2)
-    A[1,2] = sum(vects[1,:].^3 .*vects[2,:]./vects_norm2)
-    A[1,3] = sum(vects[2,:].^2 .*vects[1,:].^2 ./vects_norm2)
-    A[2,1] = A[1,2]
-    A[2,2] = A[1,3]
-    A[2,3] = sum(vects[2,:].^3 .*vects[1,:]./vects_norm2)
-    A[3,1] = A[1,3]
-    A[3,2] = A[2,3]
-    A[3,3] = sum(vects[2,:].^4 ./vects_norm2)
-
-    B[1] = sum(vects[3,:].*vects[1,:].^2 ./vects_norm2)
-    B[2] = sum(vects[1,:].*vects[2,:].*vects[3,:]./vects_norm2)
-    B[3] = sum(vects[2,:].^2 .*vects[3,:]./vects_norm2)
-
-    C,D,E = A\B
-    return C,D,E
 end
 
 ### Orginals ieks utils.jl
@@ -107,7 +120,7 @@ function vcurvature(v::Int,points::Array{Float64,2},faces::Array{Int,2},normal,I
     A = [C D/2;D/2 E]
     k1,k2 = eigvals(-A)
     H = (k1 + k2)/2
-    
+
     return H*2
 end
 
@@ -134,7 +147,7 @@ function FitEllipsoid(points)
     v[3] = u[2] - 2 * u[1] - 1;
     v[4:10] = u[3:9];
 
-    # v the 10 parameters describing the ellipsoid / conic algebraically: 
+    # v the 10 parameters describing the ellipsoid / conic algebraically:
     #               Ax^2 + By^2 + Cz^2 + 2Dxy + 2Exz + 2Fyz + 2Gx + 2Hy + 2Iz + J = 0
     ### Asuming that ellipsoid is placed at the middle and
 

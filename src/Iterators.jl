@@ -62,7 +62,7 @@ function next(iter::DoubleVertexVRing,i::Int)
     w = face.==v
     cw = w[[3,1,2]]
     ccw = w[[2,3,1]]
-    
+
     return (face[cw]...,face[ccw]...), nexti
 end
 
@@ -92,7 +92,7 @@ function next(iter::VertexVRing,ti::Int)
     face = faces[:,ti]
     cw = (face.==v)[[3,1,2]]
     vi, = face[cw]
-        
+
     nexti = find_triangle_vertex(iter.v,iter.faces[:,ti+1:end]) + ti  # possible botleneck
     return vi, nexti
 end

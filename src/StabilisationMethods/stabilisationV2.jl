@@ -1,5 +1,6 @@
 #using SurfaceGeometry
 using Optim
+using LinearAlgebra
 
 struct Zinchenko2013{T<:AbstractFloat}
     gamma::AbstractFloat
@@ -38,13 +39,20 @@ function Zinchenko2013(points,faces,n;gamma=0.25,Cp=0.4,ftol=1e-6)
         end
 
         R = eye(3)
-        C,D,E = ZinchenkoDifertential!(vects,normal,R)
+        try
+            C,D,E = ZinchenkoDifertential!(vects,normal,R)
 
-        A = [C D/2;D/2 E]
-        k1,k2 = eigvals(-A)*2
+            A = [C D/2;D/2 E]
+            k1,k2 = eigvals(-A)*2
 
-        lambda = k1^2 + k2^2
-        Lambda[i] = lambda
+            lambda = k1^2 + k2^2
+            Lambda[i] = lambda
+        catch e
+            @show i
+            @show p0
+            @show vects
+            rethrow(e)
+        end
     end
 
     s = 0
@@ -167,15 +175,20 @@ function stabiliseV2Optim!(points,faces,n,v,zc::Zinchenko2013,constraint!)
         # NOTE gradf determines the search direction for optimal v
         # therefore we can constrain v by constraining gradf
         for i in 1:size(v,2)
-            P = eye(3)-n[:,i]*n[:,i]'
-            gradf[:,i] = P*gradf[:,i]
+            #P = eye(3)-n[:,i]*n[:,i]'
+            #gradf[:,i] = P*gradf[:,i]
+            nv = view(n, :, i)
+            gv = view(gradf, :, i)
+            gv .-= dot(gv, nv) .* nv
         end
         constraint!(gradf, points, faces, n)
 
         return nothing
     end
 
-    res = optimize(f,g!,v[:],BFGS())
+    res = optimize(f,g!,v[:],BFGS(), Optim.Options(iterations = 500))
+    #@show Optim.f_calls(res)
+    #@show Optim.g_calls(res)
     #v[:,:] = reshape(res.minimum, size(v)...)[:,:]
     v[:,:] = reshape(Optim.minimizer(res), size(v)...)[:,:]
 end
